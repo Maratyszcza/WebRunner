@@ -9,7 +9,7 @@ rule peachpy
   description = PEACHPY $in
 
 rule submit
-  command = $wget --header="Content-Type:application/octet-stream" --post-file=$in "http://$server:$port/run/local?kernel=playground&iterations=$iterations" -q -O -
+  command = $wget --header="Content-Type:application/octet-stream" --post-file=$in "http://$server:$port/local/run?kernel=playground&iterations=$iterations" -q -O -
   description = SUBMIT $in
 
 build playground.o: peachpy playground.py

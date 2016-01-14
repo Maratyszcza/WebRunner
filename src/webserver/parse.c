@@ -12,6 +12,11 @@ enum webrunner_command parse_webrunner_command(size_t command_size, const char c
 				return webrunner_command_run;
 			}
 			break;
+		case sizeof("monitor") - 1:
+			if (memcmp(command, "monitor", command_size) == 0) {
+				return webrunner_command_monitor;
+			}
+			break;
 	}
 	return webrunner_command_invalid;
 }

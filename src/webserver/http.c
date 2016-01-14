@@ -7,9 +7,11 @@
 
 enum http_method parse_http_method(size_t method_size, const char method[restrict static method_size]) {
 	switch (method_size) {
-		case sizeof("POST") - 1:
+		case 4:
 			if (memcmp(method, "POST", method_size) == 0) {
 				return http_method_post;
+			} else if (memcmp(method, "HEAD", method_size) == 0) {
+				return http_method_head;
 			}
 			break;
 	}

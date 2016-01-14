@@ -19,6 +19,7 @@
 #define MAX_HEADERS_SIZE 65536
 
 struct webrunner_request {
+	enum http_method method;
 	size_t headers_length;
 	size_t content_length;
 	enum webrunner_command command;
@@ -99,48 +100,50 @@ static struct webrunner_request parse_target(size_t target_size, const char targ
 	 */
 
 	/* Parse location */
-	const char* command = target;
-	if (*command == '/') {
-		command++;
+	const char* machine = target;
+	if (*machine == '/') {
+		machine++;
 	}
-	const char* command_end = (const char*) memchr(command, '/', target_end - command);
+	const char *const machine_end = (const char*) memchr(machine, '/', target_end - machine);
+	if (machine_end == NULL) {
+		log_fatal("failed to parse machine: invalid target %.*s\n", (int) target_size, target);
+	}
+
+	const char* command = machine_end + 1;
+	const char* command_end = (const char*) memchr(machine, '?', target_end - machine);
 	if (command_end == NULL) {
-		log_fatal("failed to parse command: invalid target %.*s\n", (int) target_size, target);
+		command_end = target_end;
 	}
 	request.command = parse_webrunner_command(command_end - command, command);
-	if (request.command != webrunner_command_run) {
+	if (request.command == webrunner_command_invalid) {
 		log_fatal("invalid command: %.*s\n", (int) (command_end - command), command);
 	}
 
-	const char* uarch = command_end + 1;
-	const char* uarch_end = (const char*) memchr(uarch, '?', target_end - uarch);
-	if (uarch_end == NULL) {
-		log_fatal("failed to parse uarch: invalid target %.*s\n", (int) target_size, target);
-	}
+	if (request.command != webrunner_command_monitor) {
+		/* Pre-parse query parameters */
+		const char* query = command_end;
+		const struct http_parameter kernel_parameter = parse_http_parameter(target_end - query, query);
+		if (kernel_parameter.name == NULL) {
+			log_fatal("required parameter kernel not specified\n");
+		}
+		const enum webrunner_parameter kernel_parameter_name = parse_webrunner_parameter(kernel_parameter.name_size, kernel_parameter.name);
+		if (kernel_parameter_name != webrunner_parameter_kernel) {
+			log_fatal("unexpected parameter %.*s in place of required parameter kernel\n",
+				(int) kernel_parameter.name_size, kernel_parameter.name);
+		}
+		if (kernel_parameter.value == NULL) {
+			log_fatal("required parameter kernel specified without value\n");
+		}
+		request.kernel = parse_kernel_name(kernel_parameter.value_size, kernel_parameter.value);
+		if (request.kernel == webrunner_kernel_invalid) {
+			log_fatal("invalid kernel value: %.*s\n",
+				(int) kernel_parameter.value_size, kernel_parameter.value);
+		}
 
-	/* Pre-parse query parameters */
-	const char* query = uarch_end;
-	const struct http_parameter kernel_parameter = parse_http_parameter(target_end - query, query);
-	if (kernel_parameter.name == NULL) {
-		log_fatal("required parameter kernel not specified\n");
-	}
-	const enum webrunner_parameter kernel_parameter_name = parse_webrunner_parameter(kernel_parameter.name_size, kernel_parameter.name);
-	if (kernel_parameter_name != webrunner_parameter_kernel) {
-		log_fatal("unexpected parameter %.*s in place of required parameter kernel\n",
-			(int) kernel_parameter.name_size, kernel_parameter.name);
-	}
-	if (kernel_parameter.value == NULL) {
-		log_fatal("required parameter kernel specified without value\n");
-	}
-	request.kernel = parse_kernel_name(kernel_parameter.value_size, kernel_parameter.value);
-	if (request.kernel == webrunner_kernel_invalid) {
-		log_fatal("invalid kernel value: %.*s\n",
-			(int) kernel_parameter.value_size, kernel_parameter.value);
-	}
-
-	if (kernel_parameter.next) {
-		request.kernel_parameters_query = kernel_parameter.next;
-		request.kernel_parameters_query_size = target_end - kernel_parameter.next;
+		if (kernel_parameter.next) {
+			request.kernel_parameters_query = kernel_parameter.next;
+			request.kernel_parameters_query_size = target_end - kernel_parameter.next;
+		}
 	}
 	return request;
 }
@@ -148,7 +151,7 @@ static struct webrunner_request parse_target(size_t target_size, const char targ
 static struct webrunner_request parse_request_line(size_t line_size, const char* line) {
 	const char* line_end = &line[line_size];
 
-	/* Expected: "POST /target HTTP/1.1" */
+	/* Expected: "POST /target HTTP/1.1" or "HEAD /target HTTP/1.1" */
 
 	/* Split request line into method, target, and protocol */
 	const char* method = line;
@@ -171,7 +174,7 @@ static struct webrunner_request parse_request_line(size_t line_size, const char*
 
 	/* Validate HTTP method */
 	const enum http_method http_method = parse_http_method(method_size, method);
-	if (http_method != http_method_post) {
+	if (http_method == http_method_unknown) {
 		log_fatal("invalid HTTP method: %.*s\n", (int) method_size, method);
 	}
 
@@ -181,7 +184,9 @@ static struct webrunner_request parse_request_line(size_t line_size, const char*
 	}
 
 	/* Validate and pre-parse target */
-	return parse_target(target_size, target);
+	struct webrunner_request request = parse_target(target_size, target);
+	request.method = http_method;
+	return request;
 }
 
 static struct webrunner_request parse_request_headers(
@@ -219,59 +224,68 @@ void process_request(int connection_socket) {
 		log_fatal("could not read request socket: %s\n", strerror(errno));
 	}
 	const struct webrunner_request request = parse_request_headers(bytes_received, request_buffer);
-	const enum webrunner_kernel kernel = request.kernel;
 
-	void* parameters = alloca(kernel_specifications[kernel].parameters_size);
-	memcpy(parameters, kernel_specifications[kernel].parameters_default, kernel_specifications[kernel].parameters_size);
-	if (request.kernel_parameters_query_size != 0) {
-		const char* query = request.kernel_parameters_query;
-		const char *const query_end = &query[request.kernel_parameters_query_size];
-		do {
-			const struct http_parameter parameter = parse_http_parameter(query_end - query, query);
-			if (parameter.name == NULL) {
-				log_error("empty parameter in the query %.*s\n",
-					(int) request.kernel_parameters_query_size, request.kernel_parameters_query);
-			} else if (parameter.value == NULL) {
-				log_error("parameter %.*s specified without value\n",
-					(int) parameter.name_size, parameter.name);
-			} else {
-				kernel_specifications[kernel].parse_parameter(parameters,
-					parameter.name_size, parameter.name, parameter.value_size, parameter.value);
-			}
-			query = parameter.next;
-		} while (query);
-	}
+	if (request.command == webrunner_command_monitor) {
+		http_respond_status(connection_socket, http_status_ok, "OK");
+	} else {
+		const enum webrunner_kernel kernel = request.kernel;
 
-	const void *const request_end = &request_buffer[bytes_received];
-	const void* request_body = &request_buffer[request.headers_length];
-	generic_function function = load_kernel(request_body, request_end - request_body, kernel_specifications[kernel].name);
-
-	switch (request.command) {
-		case webrunner_command_run:
-		{
-			const struct performance_counters performance_counters = init_performance_counters();
-
-			void* arguments = alloca(kernel_specifications[kernel].arguments_size);
-			kernel_specifications[kernel].create_arguments(arguments, parameters);
-
-			enable_sandbox(connection_socket);
-
-			http_respond_status(connection_socket, http_status_ok, "OK");
-
-			for (size_t i = 0; i < performance_counters.count; i++) {
-				ioctl(performance_counters.counters[i].file_descriptor, PERF_EVENT_IOC_ENABLE, 0);
-				unsigned long long count = kernel_specifications[kernel].profile(function, arguments,
-					performance_counters.counters[i].file_descriptor, 100);
-				ioctl(performance_counters.counters[i].file_descriptor, PERF_EVENT_IOC_DISABLE, 0);
-				if (count != ULLONG_MAX) {
-					dprintf(connection_socket, "%s: %llu\n", performance_counters.counters[i].name, count);
+		void* parameters = alloca(kernel_specifications[kernel].parameters_size);
+		memcpy(parameters, kernel_specifications[kernel].parameters_default, kernel_specifications[kernel].parameters_size);
+		if (request.kernel_parameters_query_size != 0) {
+			const char* query = request.kernel_parameters_query;
+			const char *const query_end = &query[request.kernel_parameters_query_size];
+			do {
+				const struct http_parameter parameter = parse_http_parameter(query_end - query, query);
+				if (parameter.name == NULL) {
+					log_error("empty parameter in the query %.*s\n",
+						(int) request.kernel_parameters_query_size, request.kernel_parameters_query);
+				} else if (parameter.value == NULL) {
+					log_error("parameter %.*s specified without value\n",
+						(int) parameter.name_size, parameter.name);
+				} else {
+					kernel_specifications[kernel].parse_parameter(parameters,
+						parameter.name_size, parameter.name, parameter.value_size, parameter.value);
 				}
-			}
-
-			kernel_specifications[kernel].free_arguments(arguments, parameters);
-			break;
+				query = parameter.next;
+			} while (query);
 		}
-		case webrunner_command_invalid:
-			__builtin_unreachable();
+
+		if (request.method != http_method_post) {
+			log_fatal("invalid HTTP method for the command\n");
+		}
+		const void *const request_end = &request_buffer[bytes_received];
+		const void* request_body = &request_buffer[request.headers_length];
+		generic_function function = load_kernel(request_body, request_end - request_body, kernel_specifications[kernel].name);
+
+		switch (request.command) {
+			case webrunner_command_run:
+			{
+				const struct performance_counters performance_counters = init_performance_counters();
+
+				void* arguments = alloca(kernel_specifications[kernel].arguments_size);
+				kernel_specifications[kernel].create_arguments(arguments, parameters);
+
+				enable_sandbox(connection_socket);
+
+				http_respond_status(connection_socket, http_status_ok, "OK");
+
+				for (size_t i = 0; i < performance_counters.count; i++) {
+					ioctl(performance_counters.counters[i].file_descriptor, PERF_EVENT_IOC_ENABLE, 0);
+					unsigned long long count = kernel_specifications[kernel].profile(function, arguments,
+						performance_counters.counters[i].file_descriptor, 100);
+					ioctl(performance_counters.counters[i].file_descriptor, PERF_EVENT_IOC_DISABLE, 0);
+					if (count != ULLONG_MAX) {
+						dprintf(connection_socket, "%s: %llu\n", performance_counters.counters[i].name, count);
+					}
+				}
+
+				kernel_specifications[kernel].free_arguments(arguments, parameters);
+				break;
+			}
+			case webrunner_command_monitor:
+			case webrunner_command_invalid:
+				__builtin_unreachable();
+		}
 	}
 }

@@ -7,6 +7,7 @@
 
 enum webrunner_command {
 	webrunner_command_invalid = 0,
+	webrunner_command_monitor,
 	webrunner_command_run,
 };
 

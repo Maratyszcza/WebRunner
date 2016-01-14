@@ -12,6 +12,7 @@ enum http_status {
 
 enum http_method {
 	http_method_unknown = 0,
+	http_method_head,
 	http_method_post,
 };
 
