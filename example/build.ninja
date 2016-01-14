@@ -1,0 +1,17 @@
+python = python2
+wget = wget
+server = localhost
+port = 8081
+iterations = 1000
+
+rule peachpy
+  command = $python -m peachpy.x86_64 -mabi=sysv -mimage-format=elf -g4 -o $out $in
+  description = PEACHPY $in
+
+rule submit
+  command = $wget --header="Content-Type:application/octet-stream" --post-file=$in "http://$server:$port/run/local?kernel=playground&iterations=$iterations" -q -O -
+  description = SUBMIT $in
+
+build playground.o: peachpy playground.py
+build submit: submit playground.o
+
