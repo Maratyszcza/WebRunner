@@ -1,0 +1,18 @@
+# Ninja logs
+.ninja_log
+.ninja_deps
+build.ninja
+
+# Generated files
+*.o
+*.pyc
+*-gen.c
+*-gen.h
+src/runner/spec.h
+src/runner/spec.c
+build
+webrunner
+
+# Vim backups
+._*
+

@@ -1,0 +1,10 @@
+[Unit]
+Description=PeachPy.I/O WebRunner
+
+[Service]
+ExecStart=/usr/sbin/webrunner
+Restart=always
+WorkingDirectory=/var/
+
+[Install]
+WantedBy=multi-user.target
