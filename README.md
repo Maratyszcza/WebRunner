@@ -48,3 +48,56 @@ After installation you can start the service with `sudo ninja start` and termina
 ```bash
 ./webrunner # webrunner -h to list options
 ```
+
+# REST API
+
+WebRunner commands must follow the pattern `http://server[:port]/machine-id/command[?query]`
+
+- `machine-id` is an arbitrary string. It is parsed, but ignored by the WebRunner.
+- `command` is one of the supported commands (**monitor** or **run**).
+- `query` is an optional query string with command parameters.
+
+## **monitor** command
+
+The **monitor** command is used to check server status.
+
+##### HTTP request
+
+- Method: `HEAD`
+
+- URL: `http://server[:port]/machine-id/monitor`
+
+##### HTTP response
+
+A server would respond HTTP status ok 200 (OK) to this command.
+
+##### Example
+
+```bash
+curl --head "http://localhost:8081/local/monitor"
+```
+
+## **run** command
+
+The **run** command is used to benchmark and analyze a function in an ELF object. The ELF object must be sent in the request body.
+
+##### HTTP request
+
+- Method: `POST`
+
+- Content-Type: `application/octet-stream`
+
+- URL: `http://server[:port]/machine-id/run?kernel=kernel-name&[param1=value1&param2=value2&...]`
+
+The `kernel` parameter specifies kernel type. Query parameters after it depend on the kernel type and specify parameters of the kernel run. Look at XML specifications in the [`/src/kernels`](https://github.com/Maratyszcza/WebRunner/tree/master/src/kernels) directory for permitted kernel types and their parameters.
+
+##### HTTP response
+
+The server would respond with a line of names of hardware performance counters and their values (one per line)
+
+##### Example
+
+```bash
+wget --header="Content-Type:application/octet-stream" --post-file=sdot.o \
+  "http://localhost:8081/local/run?kernel=sdot&n=10000&incx=1&incy=2"
+```
