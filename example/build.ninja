@@ -1,5 +1,6 @@
 python = python2
 wget = wget
+curl = curl
 server = localhost
 port = 8081
 iterations = 1000
@@ -12,6 +13,13 @@ rule submit
   command = $wget --header="Content-Type:application/octet-stream" --post-file=$in "http://$server:$port/local/run?kernel=playground&iterations=$iterations" -q -O -
   description = SUBMIT $in
 
+rule status
+  command = $curl --head "http://$server:$port/local/monitor" --silent
+  description = STATUS $server:$port
+
 build playground.o: peachpy playground.py
 build submit: submit playground.o
+build status: status
+
+default status
 
