@@ -1,6 +1,6 @@
 # WebRunner (PeachPy.IO backend)
 
-WebRunner is a service to let users execute machine code on your server without compromising its security.
+WebRunner is a service to execute user-supplied untrusted machine code on your server without compromising its security.
 
 Key features:
 
