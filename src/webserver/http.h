@@ -7,12 +7,12 @@ enum http_status {
 	http_status_ok = 200,
 	http_status_bad_request = 400,
 	http_status_method_not_allowed = 405,
-
 };
 
 enum http_method {
 	http_method_unknown = 0,
 	http_method_head,
+	http_method_get,
 	http_method_post,
 };
 
@@ -25,6 +25,7 @@ enum http_header_name {
 enum http_content_type {
 	http_content_type_unknown = 0,
 	http_content_type_application_octet_stream,
+	http_content_type_x_www_form_urlencoded,
 };
 
 struct http_parameter {

@@ -20,6 +20,7 @@
 
 struct webrunner_request {
 	enum http_method method;
+	enum http_content_type content_type;
 	size_t headers_length;
 	size_t content_length;
 	enum webrunner_command command;
@@ -80,9 +81,9 @@ static void parse_request_header(size_t header_size, const char header[restrict 
 		}
 		case http_header_name_content_type:
 		{
-			const enum http_content_type content_type = parse_http_content_type(header_value_size, header_value_start);
-			if (content_type != http_content_type_application_octet_stream) {
-				log_fatal("invalid content type: %.*s", (int) header_value_size, header_value_start);
+			request->content_type = parse_http_content_type(header_value_size, header_value_start);
+			if (request->content_type == http_content_type_unknown) {
+				log_fatal("unknown content type: %.*s\n", (int) header_value_size, header_value_start);
 			}
 			break;
 		}
@@ -253,6 +254,9 @@ void process_request(int connection_socket) {
 
 		if (request.method != http_method_post) {
 			log_fatal("invalid HTTP method for the command\n");
+		}
+		if (request.content_type != http_content_type_application_octet_stream) {
+			log_fatal("invalid Content-Type for the command\n");
 		}
 		const void *const request_end = &request_buffer[bytes_received];
 		const void* request_body = &request_buffer[request.headers_length];

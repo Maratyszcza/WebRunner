@@ -7,6 +7,11 @@
 
 enum http_method parse_http_method(size_t method_size, const char method[restrict static method_size]) {
 	switch (method_size) {
+		case 3:
+			if (memcmp(method, "GET", method_size) == 0) {
+				return http_method_get;
+			}
+			break;
 		case 4:
 			if (memcmp(method, "POST", method_size) == 0) {
 				return http_method_post;
@@ -39,6 +44,11 @@ enum http_content_type parse_http_content_type(size_t value_size, const char val
 		case sizeof("application/octet-stream") - 1:
 			if (memcmp(value, "application/octet-stream", value_size) == 0) {
 				return http_content_type_application_octet_stream;
+			}
+			break;
+		case sizeof("application/x-www-form-urlencoded") - 1:
+			if (memcmp(value, "application/x-www-form-urlencoded", value_size) == 0) {
+				return http_content_type_x_www_form_urlencoded;
 			}
 			break;
 	}
