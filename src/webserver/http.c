@@ -19,6 +19,11 @@ enum http_method parse_http_method(size_t method_size, const char method[restric
 				return http_method_head;
 			}
 			break;
+		case 7:
+			if (memcmp(method, "OPTIONS", method_size) == 0) {
+				return http_method_options;
+			}
+			break;
 	}
 	return http_method_unknown;
 }
@@ -96,7 +101,13 @@ struct http_parameter parse_http_parameter(size_t query_size, const char query[r
 }
 
 void http_respond_status(int socket, enum http_status status, const char reason[restrict static 1]) {
-	if (dprintf(socket, "HTTP/1.1 %d %s\r\n\r\n", status, reason) < 0) {
+	if (dprintf(socket,
+		"HTTP/1.1 %d %s\r\n"
+		"Access-Control-Allow-Origin:*\r\n"
+		"Access-Control-Allow-Methods:GET, HEAD, POST, OPTIONS\r\n"
+		"Access-Control-Allow-Headers:DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type\r\n"
+		"\r\n", status, reason) < 0)
+	{
 		log_fatal("failed to write HTTP status\n");
 	}
 }

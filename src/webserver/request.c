@@ -225,6 +225,21 @@ void process_request(int connection_socket) {
 		log_fatal("could not read request socket: %s\n", strerror(errno));
 	}
 	const struct webrunner_request request = parse_request_headers(bytes_received, request_buffer);
+	if (request.method == http_method_options) {
+		if (dprintf(connection_socket,
+			"HTTP/1.1 204 NO CONTENT\r\n"
+			"Access-Control-Allow-Origin:*\r\n"
+			"Access-Control-Allow-Methods:GET, HEAD, POST, OPTIONS\r\n"
+			"Access-Control-Allow-Headers:DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type\r\n"
+			"Access-Control-Max-Age:1728000\r\n"
+			"Content-Type: text/plain charset=UTF-8\r\n"
+			"Content-Length: 0\r\n"
+			"\r\n") < 0)
+		{
+			log_fatal("failed to write HTTP status\n");
+		}
+		return;
+	}
 
 	if (request.command == webrunner_command_monitor) {
 		http_respond_status(connection_socket, http_status_ok, "OK");
