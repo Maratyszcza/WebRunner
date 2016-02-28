@@ -1,5 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <kernel name="playground">
-	<parameter name="iterations" type="uint64" default="1000" min="1" />
-	<argument name="iterations" type="uint64_t" />
+	<query>
+		<parameter name="iterations" type="uint64" default="1000" min="1" />
+	</query>
+	<call>
+		<argument name="iterations" type="uint64_t" />
+	</call>
 </kernel>

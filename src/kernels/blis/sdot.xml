@@ -1,13 +1,17 @@
 <?xml version='1.0' encoding='utf-8'?>
 <kernel name="sdot" namespace="blis">
-	<parameter name="n" type="uint64" default="1024" />
-	<parameter name="incx" type="uint32" default="1" min="1" />
-	<parameter name="incy" type="uint32" default="1" min="1" />
-	<parameter name="offx" type="uint32" default="0" max="63" />
-	<parameter name="offy" type="uint32" default="0" max="63" />
-	<argument name="n" type="size_t" />
-	<argument name="x" type="const float*" />
-	<argument name="incx" type="size_t" />
-	<argument name="y" type="const float*" />
-	<argument name="incy" type="size_t" />
+	<query>
+		<parameter name="n" type="uint64" default="1024" />
+		<parameter name="incx" type="uint32" default="1" min="1" />
+		<parameter name="incy" type="uint32" default="1" min="1" />
+		<parameter name="offx" type="uint32" default="0" max="63" />
+		<parameter name="offy" type="uint32" default="0" max="63" />
+	</query>
+	<call>
+		<argument name="n" type="size_t" />
+		<argument name="x" type="const float*" />
+		<argument name="incx" type="size_t" />
+		<argument name="y" type="const float*" />
+		<argument name="incy" type="size_t" />
+	</call>
 </kernel>

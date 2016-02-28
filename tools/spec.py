@@ -95,13 +95,17 @@ def read_kernel_specification(xml_filename):
     kernel = Kernel(xml_kernel.attrib["name"], xml_kernel.attrib.get("namespace"))
 
     for xml_element in xml_kernel:
-        assert xml_element.tag in ["parameter", "argument"]
-        if xml_element.tag == "parameter":
-            parameter = Parameter(xml_element.attrib["name"], xml_element.attrib["type"], xml_element.attrib["default"])
-            parameter.min = xml_element.get("min")
-            parameter.max = xml_element.get("max")
-            kernel.parameters.append(parameter)
-        elif xml_element.tag == "argument":
-            argument = Argument(xml_element.attrib["name"], xml_element.attrib["type"])
-            kernel.arguments.append(argument)
+        assert xml_element.tag in ["query", "call"]
+        if xml_element.tag == "query":
+            for xml_parameter in xml_element:
+                assert xml_parameter.tag == "parameter"
+                parameter = Parameter(xml_parameter.attrib["name"], xml_parameter.attrib["type"], xml_parameter.attrib["default"])
+                parameter.min = xml_parameter.get("min")
+                parameter.max = xml_parameter.get("max")
+                kernel.parameters.append(parameter)
+        elif xml_element.tag == "call":
+            for xml_argument in xml_element:
+                assert xml_argument.tag == "argument"
+                argument = Argument(xml_argument.attrib["name"], xml_argument.attrib["type"])
+                kernel.arguments.append(argument)
     return kernel
