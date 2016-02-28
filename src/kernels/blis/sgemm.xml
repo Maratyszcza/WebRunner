@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+<kernel name="sgemm" namespace="blis">
+	<query>
+		<parameter name="mr" type="uint32" default="8" min="1" max="64" />
+		<parameter name="nr" type="uint32" default="2" min="1" max="64" />
+		<parameter name="k" type="uint32" default="1024" min="1" max="65536" />
+		<parameter name="rs_c" type="uint32" default="1" min="1" max="64" />
+		<parameter name="cs_c" type="uint32" default="1" min="1" max="64" />
+	</query>
+	<call>
+		<argument name="k" type="size_t" />
+		<argument name="alpha" type="float*" />
+		<argument name="a" type="const float*" />
+		<argument name="b" type="const float*" />
+		<argument name="beta" type="const float*" />
+		<argument name="c" type="float*" />
+		<argument name="rs_c" type="size_t" />
+		<argument name="cs_c" type="size_t" />
+		<!--<argument name="data" type="void*" />-->
+	</call>
+</kernel>
